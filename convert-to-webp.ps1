@@ -14,10 +14,28 @@ Write-Host "Quality: $quality"
 Write-Host "Input directory: $imgDir"
 Write-Host ""
 
-$jpgFiles = Get-ChildItem $imgDir -Filter "*.JPG" -ErrorAction SilentlyContinue
+# pick only original JPGs (exclude those with -400 or -800 suffix)
+$jpgFiles = Get-ChildItem $imgDir -Filter "*.JPG" -ErrorAction SilentlyContinue |
+            Where-Object { $_.BaseName -notmatch '-(400|800)(?:-|$)' }
 if ($jpgFiles.Count -eq 0) {
-    Write-Host "No JPG files found"
+    Write-Host "No original JPG files found (maybe everything is already resized)"
     exit 0
+}
+
+# detect ImageMagick and cwebp
+$hasMagick = (Get-Command magick -ErrorAction SilentlyContinue) -ne $null
+$hasCwebp = (Get-Command cwebp -ErrorAction SilentlyContinue) -ne $null
+if (-not $hasCwebp -and -not $hasMagick) {
+    Write-Host "Error: neither cwebp nor ImageMagick found.\nInstall one of them to generate WebP files."
+    exit 1
+}
+
+if ($hasMagick) {
+    Write-Host "ImageMagick detected; thumbnails will be generated."
+    # widths in pixels for responsive srcset
+    $thumbWidths = @(400, 800)
+} else {
+    Write-Host "ImageMagick not found; only full‑size WebP will be produced."
 }
 
 $successCount = 0
@@ -25,12 +43,18 @@ $failureCount = 0
 
 foreach ($file in $jpgFiles) {
     $inputFile = $file.FullName
-    $outputFile = [System.IO.Path]::ChangeExtension($file.FullName, ".webp")
+    $baseName = [System.IO.Path]::GetFileNameWithoutExtension($inputFile)
+    $outputFile = [System.IO.Path]::ChangeExtension($inputFile, ".webp")
     
     Write-Host "Converting: $($file.Name)..." -NoNewline
     
     try {
-        & cwebp -q $quality "$inputFile" -o "$outputFile"
+        if ($hasCwebp) {
+            & cwebp -q $quality "$inputFile" -o "$outputFile"
+        } else {
+            # fallback using ImageMagick
+            & magick "$inputFile" -quality $quality "$outputFile"
+        }
         
         if (Test-Path $outputFile) {
             $jpgSize = $file.Length / 1024
@@ -45,6 +69,24 @@ foreach ($file in $jpgFiles) {
     } catch {
         Write-Host " ERROR: $_" -ForegroundColor Red
         $failureCount++
+    }
+
+    if ($hasMagick) {
+        foreach ($w in $thumbWidths) {
+            $thumbJpg = Join-Path $imgDir "$baseName-$w.jpg"
+            $thumbWebp = Join-Path $imgDir "$baseName-$w.webp"
+            try {
+                & magick "$inputFile" -resize ${w}x "$thumbJpg"
+                if ($hasCwebp) {
+                    & cwebp -q $quality "$thumbJpg" -o "$thumbWebp"
+                } else {
+                    & magick "$thumbJpg" -quality $quality "$thumbWebp"
+                }
+                Write-Host "    created thumb ${w}px" -ForegroundColor Yellow
+            } catch {
+                Write-Host "    thumb ${w}px failed: $_" -ForegroundColor Red
+            }
+        }
     }
 }
 

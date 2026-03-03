@@ -1,0 +1,6 @@
+# ignore generated thumbnails and webp conversions
+img/*-*.jpg
+img/*-*.webp
+
+# keep other assets
+!important: do not ignore original JPGs
