@@ -1,9 +1,12 @@
-# ignore generated thumbnails and webp conversions
-img/*-*.jpg
-img/*-*.webp
+# ignore large generated files and nested thumbnails
+img/*-800*
+img/*-*-*.jpg
+img/*-*-*.webp
 
-# also ignore all WebP outputs to avoid tracking large generated files
+# allow 400px responsive versions for mobile (smallest safe size)
+!img/*-400.jpg
+!img/*-400.webp
+
+# also allow original jpg for fallback
 img/*.webp
-
-# keep other assets
-!important: do not ignore original JPGs or .jpg files without size suffix
+!img/tmall.webp
