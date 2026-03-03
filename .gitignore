@@ -2,5 +2,8 @@
 img/*-*.jpg
 img/*-*.webp
 
+# also ignore all WebP outputs to avoid tracking large generated files
+img/*.webp
+
 # keep other assets
-!important: do not ignore original JPGs
+!important: do not ignore original JPGs or .jpg files without size suffix

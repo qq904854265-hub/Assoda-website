@@ -15,8 +15,11 @@ Write-Host "Input directory: $imgDir"
 Write-Host ""
 
 # pick only original JPGs (exclude those with -400 or -800 suffix)
-$jpgFiles = Get-ChildItem $imgDir -Filter "*.JPG" -ErrorAction SilentlyContinue |
+# collect JPGs case-insensitively
+$jpgFiles = Get-ChildItem $imgDir -Include "*.jpg","*.JPG" -File -ErrorAction SilentlyContinue |
             Where-Object { $_.BaseName -notmatch '-(400|800)(?:-|$)' }
+Write-Host "Found $($jpgFiles.Count) JPG files to process:" -ForegroundColor Cyan
+$jpgFiles | ForEach-Object { Write-Host "  - $($_.Name)" }
 if ($jpgFiles.Count -eq 0) {
     Write-Host "No original JPG files found (maybe everything is already resized)"
     exit 0
